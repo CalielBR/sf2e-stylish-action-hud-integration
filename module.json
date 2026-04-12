@@ -1,32 +1,38 @@
 {
   "id": "sf2e-stylish-action-hud",
-  "title": "Starfinder 2e Stylish Action HUD Integration",
-  "description": "Integration and visual enhancements for the Starfinder 2e Action HUD.",
-  "version": "1.0.0",
+  "title": "Starfinder2e Stylish Action Hud Integration",
+  "description": "Visual and layout optimization for the Token Action HUD in the Starfinder 2e system.",
+  "version": "1.1.0",
   "authors": [
     {
-      "name": "CalielBR",
-      "url": "https://github.com/CalielBR"
+      "name": "CalielFR"
     }
   ],
   "compatibility": {
-    "minimum": "12",
-    "verified": "13",
-    "maximum": "14"
+    "minimum": "13",
+    "verified": "14"
   },
   "relationships": {
     "requires": [
       {
-        "id": "sf2e",
-        "type": "system"
-      },
-      {
         "id": "stylish-action-hud",
         "type": "module"
       }
+    ],
+    "systems": [
+      {
+        "id": "sf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "0.0.11"
+        }
+      }
     ]
   },
-  "url": "https://github.com/CalielBR/sf2e-stylish-action-hud-integration",
-  "manifest": "https://github.com/CalielBR/sf2e-stylish-action-hud/releases/latest/download/module.json",
-  "download": "https://github.com/CalielBR/sf2e-stylish-action-hud/releases/latest/download/module.zip"
+  "styles": [
+    "styles/sf2e-StylishActionHud-styles.css"
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ]
 }
