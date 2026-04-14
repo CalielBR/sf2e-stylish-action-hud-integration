@@ -624,7 +624,10 @@ export class Pf2eAdapter extends BaseSystemAdapter {
 
 	_createStrikeItem(s) {
 		// Define se o item está pronto para uso imediato (ataques desarmados ou itens nas mãos)
-		const isUnarmed = s.item?.type === "unarmed" || s.traits?.some(t => t.value === "unarmed");
+		const isUnarmed = s.item?.type === "unarmed" ||
+						  s.item?.slug === "unarmed" ||
+						  s.item?.system?.category === "unarmed" || 
+						  s.traits?.some(t => (t.value || t) === "unarmed");
 		const isHeld = s.item?.system?.equipped?.carryType === "held";
 		const isReady = isHeld || isUnarmed;
 
@@ -1568,13 +1571,18 @@ export class Pf2eAdapter extends BaseSystemAdapter {
 		const options = [];
 
 		const isHeld = carryType === "held";
+		const localize = (key, fallback) => {
+			const text = game.i18n.localize(key);
+			return text && text !== key ? text : fallback;
+		};
+
 		// Dinamicamente escolhe entre "Draw" ou "Grip" baseado no estado atual
 		const verb = isHeld
-			? (game.i18n.localize("IBHUD.Pf2e.ActionGrip") || "Grip")
-			: (game.i18n.localize("IBHUD.Pf2e.ActionDraw") || "Draw");
+			? localize("IBHUD.Pf2e.ActionGrip", "Grip")
+			: localize("IBHUD.Pf2e.ActionDraw", "Draw");
 
-		const handsLabel1 = game.i18n.localize("IBHUD.Pf2e.ActionGrip1") || "1H";
-		const handsLabel2 = game.i18n.localize("IBHUD.Pf2e.ActionGrip2") || "2H";
+		const handsLabel1 = localize("IBHUD.Pf2e.ActionGrip1", "1H");
+		const handsLabel2 = localize("IBHUD.Pf2e.ActionGrip2", "2H");
 
 		const addOption = (id, label, iconHtml, active = false) => {
 			options.push({
@@ -1651,14 +1659,14 @@ export class Pf2eAdapter extends BaseSystemAdapter {
 
 		const carryStateLabel =
 			carryType === "held"
-				? `${game.i18n.localize("IBHUD.Pf2e.ActionHeld")} ${handsHeld >= 2 ? game.i18n.localize("IBHUD.Pf2e.ActionGrip2") : game.i18n.localize("IBHUD.Pf2e.ActionGrip1")}`
+				? `${localize("IBHUD.Pf2e.ActionHeld", "Held")} ${handsHeld >= 2 ? handsLabel2 : handsLabel1}`
 				: carryType === "worn"
 					? (isArmorWorn
-						? game.i18n.localize("IBHUD.Pf2e.ActionWearArmor")
-						: game.i18n.localize("IBHUD.Pf2e.ActionWear"))
+						? localize("IBHUD.Pf2e.ActionWearArmor", "Wear Armor")
+						: localize("IBHUD.Pf2e.ActionWear", "Wear"))
 					: carryType === "dropped"
-						? game.i18n.localize("IBHUD.Pf2e.ActionDrop")
-						: game.i18n.localize("IBHUD.Pf2e.ActionStow");
+						? localize("IBHUD.Pf2e.ActionDrop", "Drop")
+						: localize("IBHUD.Pf2e.ActionStow", "Stow");
 
 		return this._buildInventoryManageButton(item.id, carryType, handsHeld, carryStateLabel, options);
 	}
