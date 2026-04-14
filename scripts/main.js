@@ -112,16 +112,63 @@ class Starfinder2eAdapter extends Pf2eAdapter {
     ];
 
     /**
+     * Gera uma descrição rica para o tooltip do HUD, incluindo raridade e traços,
+     * similar à lógica de tooltips do Token Action HUD PF2e.
+     */
+    async _prepareTooltip(name, description, traits = [], rarity = null) {
+        if (!description && (!traits || traits.length === 0)) return "";
+
+        // Tenta localizar a descrição caso seja uma chave de tradução (comum em ações do sistema)
+        const finalDescription = game.i18n.localize(description || "");
+
+        let header = `<h3 style="border-bottom: 1px solid var(--color-border-light-2); margin-bottom: 5px; font-weight: bold;">${name}</h3>`;
+        header += '<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">';
+
+        if (rarity) {
+            const rName = rarity.name || rarity.value || (typeof rarity === 'string' ? rarity : "");
+            const rLabel = rarity.label || game.i18n.localize(CONFIG.PF2E.rarityTraits[rName] || rName);
+            if (rName) {
+                header += `<span class="tag rarity ${rName}" style="background: var(--color-rarity-${rName}); color: white; padding: 1px 4px; border-radius: 3px; font-size: 0.85em;">${rLabel}</span>`;
+            }
+        }
+
+        const traitList = Array.isArray(traits) ? traits : (traits?.value || []);
+        traitList.forEach(t => {
+            const traitKey = t.value || t.name || t;
+            const label = t.label || game.i18n.localize(CONFIG.PF2E.actionTraits[traitKey] || traitKey);
+            if (label) {
+                header += `<span class="tag" style="background: rgba(255,255,255,0.1); border: 1px solid var(--color-border-dark-1); padding: 1px 4px; border-radius: 3px; font-size: 0.85em;">${label}</span>`;
+            }
+        });
+        header += '</div>';
+
+        const tooltipHtml = `<div>${header}<div class="description" style="font-size: 0.95em; line-height: 1.4;">${finalDescription}</div></div>`;
+
+        // Processa o HTML para ativar links de compêndio, ícones de ação e rolagens inline
+        return await foundry.applications.ux.TextEditor.implementation.enrichHTML(tooltipHtml, { async: true });
+    }
+
+    /**
      * Helper para preparar o visual da ação (nome limpo + ícone único)
      */
-    _prepareActionDisplay(name, slug, glyph = "") {
+    _prepareActionDisplay(name, slug, glyph = "", fullId = "") {
         const cleanName = name.replace(/\s*\(P?S?F2E\.Skill\.[^)]+\)/gi, "");
-        const raClass = Starfinder2eAdapter.RPG_AWESOME_ICONS[slug];
-        const iconHtml = raClass ? `<i class="${raClass}" style="margin-right: 12px; font-size:1.1em; vertical-align:middle; width:20px; text-align:center;"></i>` : "";
+        let raClass = Starfinder2eAdapter.RPG_AWESOME_ICONS[slug];
+
+        // Fallback para garantir que o ícone de chat (hover) sempre tenha um container
+        if (!raClass) raClass = "fa-solid fa-dice-d20";
+
+        // Container que alterna entre o ícone da ação e o ícone de chat no hover. 
+        // O ícone de chat agora tem pointer-events:auto e dispara o toChat.
+        const iconHtml = `
+            <div class="sf2e-hud-icon-wrapper" style="position:relative; margin-right: 12px; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center;">
+                <i class="${raClass} sf2e-base-icon" style="font-size:1.1em; transition: opacity 0.15s;"></i>
+                <i class="fa-solid fa-comment-alt sf2e-chat-icon" onclick="event.stopPropagation(); StylishAction.useItem('${fullId}:chat', event)" style="position:absolute; opacity:0; transition: opacity 0.15s; color: #00d2ff; font-size: 1.1em; cursor:pointer; pointer-events:auto;"></i>
+            </div>`;
 
         return {
             hasRaIcon: !!raClass,
-            html: `<div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;">
+            html: `<div class="sf2e-action-item-row" style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;">
                     <span style="font-size:1.0em; font-weight:bold; line-height:1.2; text-align:left; display: flex; align-items: center;">${iconHtml}${cleanName}</span>
                     <span style="margin-left:auto; display:flex; align-items:center;">${glyph}</span>
                    </div>`
@@ -149,6 +196,193 @@ class Starfinder2eAdapter extends Pf2eAdapter {
         if (s.resources?.rp) stats.push({ path: "system.resources.rp", label: "Resolve Points (RP)", style: "badge", icon: "ra ra-atom" });
 
         return stats;
+    }
+
+    /* -----------------------------------------
+       4. INVENTORY (Consumables & Gear)
+       ----------------------------------------- */
+    _getInventoryData(actor) {
+        const categories = {
+            weapon: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvWeapons") || "Weapons"} <i class='ra ra-crossed-swords' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvWeapons") || "Weapons",
+            },
+            armor: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvArmor") || "Armor"} <i class='ra ra-shield' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvArmor") || "Armor",
+            },
+            augmentation: {
+                label: `Augmentations <i class='ra ra-pulse' style='margin-left: 8px;'></i>`,
+                tooltip: "Augmentations (Cybernetics & Biotech)",
+            },
+            upgrade: {
+                label: `Upgrades <i class='ra ra-cog' style='margin-left: 8px;'></i>`,
+                tooltip: "Armor Upgrades & Weapon Fusions",
+            },
+            consumable: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvConsumables") || "Consumables"} <i class='ra ra-potion' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvConsumables") || "Consumables",
+            },
+            equipment: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvEquipment") || "Equipment"} <i class='ra ra-gear-hammer' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvEquipment") || "Equipment",
+            },
+            treasure: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvTreasure") || "Treasure"} <i class='ra ra-gem' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvTreasure") || "Treasure",
+            },
+            backpack: {
+                label: `${game.i18n.localize("IBHUD.Pf2e.InvContainers") || "Containers"} <i class='ra ra-backpack' style='margin-left: 8px;'></i>`,
+                tooltip: game.i18n.localize("IBHUD.Pf2e.InvContainers") || "Containers",
+            },
+            ammo: {
+                label: `Ammunition <i class='ra ra-bullets' style='margin-left: 8px;'></i>`,
+                tooltip: "Ammunition",
+            },
+        };
+
+        const items = {};
+        const primaryLabels = {};
+        const primaryTooltips = {};
+        const subLabels = {};
+
+        Object.keys(categories).forEach((key) => {
+            items[key] = { all: [] };
+            primaryLabels[key] = categories[key].label;
+            primaryTooltips[key] = categories[key].tooltip;
+            subLabels[key] = { all: "All Items" };
+        });
+
+        // Adicionado suporte a 'augmentation' e 'upgrade'
+        const physicalItems = actor.items.filter((i) =>
+            [
+                "weapon",
+                "armor",
+                "consumable",
+                "equipment",
+                "treasure",
+                "backpack",
+                "ammo",
+                "augmentation",
+                "upgrade"
+            ].includes(i.type),
+        );
+
+        physicalItems.forEach((i) => {
+            const type = i.type;
+            if ((type === "consumable" || type === "treasure") && i.quantity <= 0)
+                return;
+
+            const actionButtons = this._getInventoryActionButtons(i);
+            const quantityHtml = `<span style="font-family:'Teko'; font-size:1.1em; color:var(--g-accent);">x${i.quantity}</span>`;
+
+            const listItem = {
+                id: i.id,
+                name: i.name,
+                img: i.img || "icons/svg/item-bag.svg",
+                hasInlineControls: Boolean(actionButtons),
+                cost: actionButtons
+                    ? `
+                        <div style="display:flex; align-items:flex-start; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:180px; row-gap:5px;">
+                            ${quantityHtml}
+                            ${actionButtons}
+                        </div>
+                    `
+                    : quantityHtml,
+                description: i.system.description?.value || "",
+            };
+
+            if (items[type]) {
+                items[type]["all"].push(listItem);
+            }
+        });
+
+        Object.keys(items).forEach((key) => {
+            if (items[key]["all"].length === 0) {
+                delete items[key];
+                delete primaryLabels[key];
+                delete primaryTooltips[key];
+                delete subLabels[key];
+            } else {
+                items[key]["all"].sort((a, b) => a.name.localeCompare(b.name));
+            }
+        });
+
+        return {
+            title: "INVENTORY",
+            theme: "red",
+            hasTabs: true,
+            hasSubTabs: true,
+            items: items,
+            tabLabels: primaryLabels,
+            tabTooltips: primaryTooltips,
+            subTabLabels: subLabels,
+        };
+    }
+
+    _getInventoryActionButtons(item) {
+        const equipped = item.system?.equipped || {};
+        const carryType = String(equipped.carryType || "stowed");
+        const handsHeld = Number(equipped.handsHeld ?? 0);
+        const inSlot = Boolean(equipped.inSlot);
+        const invested = Boolean(equipped.invested);
+        const usageValue = String(item.system?.usage?.value ?? item.system?.usage ?? "").toLowerCase();
+        const canGrip = ["weapon", "armor", "equipment", "consumable", "treasure", "backpack", "augmentation"].includes(item.type);
+        const canWear = ["weapon", "armor", "equipment", "consumable", "treasure", "backpack", "augmentation"].includes(item.type) || usageValue.includes("worn");
+        const canInvest =
+            Array.isArray(item.system?.traits?.value) &&
+            item.system.traits.value.includes("invested");
+        const isArmorWorn = item.type === "armor" && carryType === "worn" && inSlot;
+        const isHeld1 = carryType === "held" && handsHeld <= 1;
+        const isHeld2 = carryType === "held" && handsHeld >= 2;
+        const isWorn = carryType === "worn" && !isArmorWorn;
+        const isStowed = carryType === "stowed";
+        const isDropped = carryType === "dropped";
+
+        const options = [];
+        const isHeld = carryType === "held";
+        const localize = (key, fallback) => {
+            const text = game.i18n.localize(key);
+            return text && text !== key ? text : fallback;
+        };
+
+        const verb = isHeld ? localize("IBHUD.Pf2e.ActionGrip", "Grip") : localize("IBHUD.Pf2e.ActionDraw", "Draw");
+        const handsLabel1 = localize("IBHUD.Pf2e.ActionGrip1", "1H");
+        const handsLabel2 = localize("IBHUD.Pf2e.ActionGrip2", "2H");
+
+        const addOption = (id, label, iconHtml, active = false) => {
+            options.push({ id, label, iconHtml, active });
+        };
+
+        if (canGrip) {
+            addOption("grip1", `${verb} ${handsLabel1}`, this._getInventoryCarryIconHtml("held", 1), isHeld1);
+            addOption("grip2", `${verb} ${handsLabel2}`, this._getInventoryCarryIconHtml("held", 2), isHeld2);
+        }
+        if (item.type === "armor") {
+            addOption("wearArmor", game.i18n.localize("IBHUD.Pf2e.ActionWearArmor"), this._getInventoryCarryIconHtml("worn-armor", 0), isArmorWorn);
+        }
+        if (canWear) {
+            addOption("wear", game.i18n.localize("IBHUD.Pf2e.ActionWear"), this._getInventoryCarryIconHtml("worn", 0), isWorn);
+        }
+        addOption("stow", game.i18n.localize("IBHUD.Pf2e.ActionStow"), this._getInventoryCarryIconHtml("stowed", 0), isStowed);
+        addOption("dropped", game.i18n.localize("IBHUD.Pf2e.ActionDrop"), this._getInventoryCarryIconHtml("dropped", 0), isDropped);
+
+        if (canInvest) {
+            options.push({
+                id: "invest",
+                label: `${game.i18n.localize("IBHUD.Pf2e.ActionInvest")}${invested ? " \u2713" : ""}`,
+                iconHtml: `<i class="fas fa-gem"></i>`,
+                active: invested,
+            });
+        }
+
+        const carryStateLabel = carryType === "held"
+            ? `${localize("IBHUD.Pf2e.ActionHeld", "Held")} ${handsHeld >= 2 ? handsLabel2 : handsLabel1}`
+            : carryType === "worn"
+                ? (isArmorWorn ? localize("IBHUD.Pf2e.ActionWearArmor", "Wear Armor") : localize("IBHUD.Pf2e.ActionWear", "Wear"))
+                : carryType === "dropped" ? localize("IBHUD.Pf2e.ActionDrop", "Drop") : localize("IBHUD.Pf2e.ActionStow", "Stow");
+
+        return this._buildInventoryManageButton(item.id, carryType, handsHeld, carryStateLabel, options);
     }
 
     /**
@@ -213,13 +447,13 @@ class Starfinder2eAdapter extends Pf2eAdapter {
     /**
      * Corrige nomes de ações e injeta ícones customizados da pasta assets/actions
      */
-    _getActionData(actor) {
+    async _getActionData(actor) {
         // Encounter Slugs
-        const slugsAttack = ['strike', 'escape', 'disarm', 'grapple', 'shove', 'trip', 'reposition', 'feint'];
+        const slugsAttack = ['strike', 'escape', 'disarm', 'grapple', 'shove', 'trip', 'reposition', 'feint', 'area-fire', 'auto-fire'];
         const slugsMovement = ['stride', 'step', 'stand', 'crawl', 'leap'];
         const slugsInteractPercept = ['interact', 'seek', 'sense-motive', 'point-out'];
         const slugsDefenseSupport = ['take-cover', 'raise-a-shield', 'avert-gaze', 'ready'];
-        const slugsSpecialty = ['area-fire', 'auto-fire', 'burrow', 'fly', 'mount', 'push-off', 'dismiss', 'sustain'];
+        const slugsSpecialty = ['burrow', 'fly', 'mount', 'push-off', 'dismiss', 'sustain'];
         const slugsSkillCombat = [
             'balance', 'tumble-through', 'maneuver-in-flight', 'climb', 'force-open', 'high-jump', 'long-jump', 'swim',
             'recall-knowledge', 'disable-a-device', 'create-a-diversion', 'demoralize', 'administer-first-aid',
@@ -264,8 +498,8 @@ class Starfinder2eAdapter extends Pf2eAdapter {
 
         // 1. System Actions
         if (game.pf2e?.actions) {
-            game.pf2e.actions.forEach(action => {
-                if (seenSlugs.has(action.slug)) return;
+            for (const action of game.pf2e.actions) {
+                if (seenSlugs.has(action.slug)) continue;
                 seenSlugs.add(action.slug);
 
                 let name = game.i18n.localize(action.name);
@@ -273,7 +507,7 @@ class Starfinder2eAdapter extends Pf2eAdapter {
                 const skillTrait = traits.find(t => Starfinder2eAdapter.SKILL_TRAITS.includes(t.value || t));
 
                 const glyph = this._getActionGlyph(action.cost || action.actionType);
-                const display = this._prepareActionDisplay(name, action.slug, glyph);
+                const display = this._prepareActionDisplay(name, action.slug, glyph, `skillaction:${action.slug}`);
 
                 let img = (action.img && !display.hasRaIcon && !action.img.includes("mystery-man")) ? action.img : "";
                 if (!img && !display.hasRaIcon) img = "icons/svg/d20.svg";
@@ -308,7 +542,11 @@ class Starfinder2eAdapter extends Pf2eAdapter {
                     name: finalName,
                     img: img,
                     cost: "",
-                    description: game.i18n.localize(action.description)
+                    description: await this._prepareTooltip(name, game.i18n.localize(action.description), traits),
+                    tooltipData: {
+                        traits: traits,
+                        description: action.description
+                    }
                 };
 
                 if (slugsAttack.includes(action.slug)) buckets.encounter.attack.push(itemData);
@@ -329,29 +567,37 @@ class Starfinder2eAdapter extends Pf2eAdapter {
                         buckets.encounter.skill_combat.push(itemData);
                     }
                 }
-            });
+            }
         }
 
         // 2. Actor Actions (Feats/Items)
-        const actorActions = actor.itemTypes.action || [];
-        actorActions.forEach(i => {
+        const actorItems = [...actor.itemTypes.action, ...actor.itemTypes.feat];
+        for (const i of actorItems) {
             const actionType = i.system.actionType?.value || "action";
-            const glyph = this._getActionGlyph(i.system.actions?.value || actionType);
+            const glyph = this._getActionGlyph(i.system.actions?.value || i.actionCost || actionType);
             const slug = i.slug || i.name.slugify();
-            if (seenSlugs.has(slug)) return;
+            if (seenSlugs.has(slug)) continue;
             seenSlugs.add(slug);
 
-            const display = this._prepareActionDisplay(i.name, slug, glyph);
+            const display = this._prepareActionDisplay(i.name, slug, glyph, i.id);
+            const traits = i.system.traits?.value || [];
 
             let img = (i.img && !display.hasRaIcon && !i.img.includes("mystery-man")) ? i.img : "";
             if (!img && !display.hasRaIcon) img = "icons/svg/d20.svg";
+
+            const chatData = await i.getChatData();
 
             const itemData = {
                 id: i.id,
                 name: display.html,
                 img: img,
                 cost: "",
-                description: i.system.description.value
+                description: await this._prepareTooltip(i.name, chatData.description.value, chatData.traits, chatData.rarity),
+                tooltipData: {
+                    traits: traits,
+                    rarity: i.system.traits?.rarity,
+                    description: i.system.description.value
+                }
             };
 
             if (slugsAttack.includes(slug)) buckets.encounter.attack.push(itemData);
@@ -362,8 +608,8 @@ class Starfinder2eAdapter extends Pf2eAdapter {
             else if (actionType === "reaction" || slugsReactions.includes(slug)) buckets.encounter.reactions.push(itemData);
             else if (actionType === "free" || slugsFreeActions.includes(slug)) buckets.encounter.free.push(itemData);
             else if (actionType === "passive") { /* ignore */ }
-            else buckets.encounter.skill_combat.push(itemData);
-        });
+            else if (i.type === "action") buckets.encounter.skill_combat.push(itemData);
+        }
 
         // Flatten Buckets into items array with Headers (The "Submenus")
         const items = { encounter: [], exploration: [], downtime: [] };
@@ -387,15 +633,18 @@ class Starfinder2eAdapter extends Pf2eAdapter {
         }
 
         // Add Follow the Expert to Exploration
-        buckets.exploration.unshift({
+        const fteName = game.i18n.localize("PF2E.Actions.FollowTheExpert.Title");
+        const fteDisplay = this._prepareActionDisplay(fteName, "follow-the-expert", this._getActionGlyph("1"), "skillaction:follow-the-expert");
+        items.exploration.unshift({
             id: "skillaction:follow-the-expert",
-            name: `
-                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;">
-                    <span style="font-size:1.0em; font-weight:bold; line-height:1.2; text-align:left; display: flex; align-items: center;"><i class="ra ra-archery-target" style="margin-right:12px; font-size:1.1em; vertical-align:middle; width:20px; text-align:center;"></i>Follow the Expert</span>
-                    <span style="margin-left:auto; display:flex; align-items:center;">${this._getActionGlyph("1")}</span>
-                </div>`,
+            name: fteDisplay.html,
             img: "",
-            cost: ""
+            cost: "",
+            description: await this._prepareTooltip(fteName, "PF2E.Actions.FollowTheExpert.Description", ["exploration"]),
+            tooltipData: {
+                traits: ["exploration"],
+                description: "PF2E.Actions.FollowTheExpert.Description"
+            }
         });
 
         // Flatten Exploration & Downtime
@@ -429,8 +678,10 @@ class Starfinder2eAdapter extends Pf2eAdapter {
      */
     async _getSystemSubMenuData(actor, systemId, menuData) {
         if (systemId === "action") {
-            const actionData = this._getActionData(actor);
+            const actionData = await this._getActionData(actor);
             const strikeData = await super._getSystemSubMenuData(actor, "strike", menuData);
+
+            if (!actionData) return strikeData || { title: menuData.label, items: [] };
 
             if (Array.isArray(actionData.items?.encounter)) {
                 // Injeta os Strikes logo após o cabeçalho de Ataques
@@ -524,26 +775,103 @@ class Starfinder2eAdapter extends Pf2eAdapter {
      * Manipula a execução das novas ações utilitárias.
      */
     async useItem(actor, itemId, event = null) {
+        // Normaliza o evento para garantir que as propriedades (ctrl, shift) sejam passadas corretamente
+        const e = event || window.event || {};
+        const cleanEvent = this._normalizePointerEvent(e);
+
+        // Suporte para Skill Actions do sistema (ex: Trip, Sense Motive)
+        if (itemId.startsWith("skillaction:")) {
+            const parts = itemId.split(":");
+            const slug = parts[1];
+            const variantIdx = parts[2];
+            const isChat = parts.includes("chat");
+            const action = game.pf2e.actions.get(slug);
+
+            if (!action) return;
+
+            // Se o comando for para o chat, enviamos a mensagem rica
+            if (isChat) {
+                if (typeof action.toMessage === "function") return action.toMessage({ actors: [actor] });
+                // Fallback: executa com shift para forçar o card se toMessage não existir
+                return action.use({ event: { shiftKey: true }, actors: [actor] });
+            }
+
+            const options = { event: cleanEvent, actors: [actor] };
+            if (variantIdx !== undefined) options.variant = variantIdx;
+            return action.use(options);
+        }
+
         if (itemId.startsWith("sf2e-util:")) {
             const action = itemId.replace("sf2e-util:", "");
-
-            // Normaliza o evento para garantir que as propriedades (ctrl, shift) sejam passadas corretamente ao motor PF2e
-            const e = event || window.event || {};
-            const cleanEvent = this._normalizePointerEvent(e);
-
             switch (action) {
                 case "use-resolve":
                     // Abre a ficha ou dispara o diálogo de repouso se disponível
                     return actor.sheet.render(true);
             }
         }
+
+        // Intercepta cliques em itens do inventário para abrir a ficha (informações) 
+        // em vez de abrir o Strike Dialog (para armas) ou usar o item automaticamente.
+        const parts = itemId.split("_");
+        const realItemId = parts[0];
+        const command = parts.includes("chat") ? "chat" : (parts.length > 1 ? parts[1] : null);
+
+        // Se for um clique direto no item (sem comando de ataque/dano) e sem prefixos de sistema
+        if (!command && !itemId.includes(":") && !itemId.startsWith("macro-") && !itemId.startsWith("blast_")) {
+            let item = actor.items.get(realItemId);
+            if (!item) item = this.findSyntheticItem(actor, realItemId);
+
+            if (item) {
+                const infoTypes = ["weapon", "armor", "equipment", "consumable", "treasure", "backpack", "ammo", "augmentation", "upgrade"];
+                if (infoTypes.includes(item.type)) {
+                    return item.sheet.render(true);
+                }
+
+                // Lógica principal: Enviar Feats e Actions para o chat como no Token Action HUD
+                // Isso renderiza o card rico (action-card.hbs) com a descrição completa.
+                if (["feat", "action"].includes(item.type)) {
+                    // Atalho: Shift + Clique abre a ficha original do item
+                    if (cleanEvent.shiftKey) return item.sheet.render(true);
+
+                    return item.toChat ? item.toChat(e) : item.use({ event: e });
+                }
+            }
+        }
+
+        // Trata o comando de chat para itens (Feats, Actions, Inventory)
+        if (command === "chat") {
+            const item = actor.items.get(realItemId) || this.findSyntheticItem(actor, realItemId);
+            if (item) {
+                if (typeof item.toChat === "function") return item.toChat(e);
+                return item.use({ event: { shiftKey: true } });
+            }
+        }
+
         return super.useItem(actor, itemId, event);
+    }
+
+    async _handleItem(actor, itemId, event, context = {}) {
+        const item = actor.items.get(itemId) || this.findSyntheticItem(actor, itemId);
+        // Garante que gatilhos secundários (como atalhos) também usem o Action Card rico
+        if (item && ["feat", "action"].includes(item.type)) {
+            if (typeof item.toChat === "function") return item.toChat(event);
+            if (typeof item.use === "function") return item.use({ event });
+        }
+        return super._handleItem(actor, itemId, event, context);
     }
 }
 
 Hooks.once("stylish-action-hud.apiReady", api => {
     // Registra o adaptador para o sistema sf2e
     api.registerSystemAdapter("sf2e", Starfinder2eAdapter);
+
+    // Injeta CSS dinâmico para o efeito de troca de ícone ao passar o mouse
+    const style = document.createElement("style");
+    style.innerHTML = `
+        .sf2e-action-item-row:hover .sf2e-base-icon { opacity: 0; }
+        .sf2e-action-item-row:hover .sf2e-chat-icon { opacity: 1 !important; }
+    `;
+    document.head.appendChild(style);
 
     console.log("SF2E Stylish Action HUD | Adaptador Starfinder 2e inicializado com sucesso.");
 });
