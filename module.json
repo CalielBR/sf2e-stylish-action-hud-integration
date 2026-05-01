@@ -17,7 +17,7 @@
   "styles": [
     "styles/sf2-stylish-bridge.css"
   ],
-  "version": "4.0.0",
+  "version": "5.0.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13",
