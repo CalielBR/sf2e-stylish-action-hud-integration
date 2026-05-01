@@ -1,89 +1,46 @@
-<div align="center">
-
-<h1>Stylish Bridge - SF2e Integration</h1>
-
-**Melhoria de interface para o Stylish Action HUD no Starfinder 2e. Otimizado para visualização de ações, magias e equipamentos em cenários de alta tecnologia.**
-
-</div>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Foundry%20VTT-v13-red?style=for-the-badge" alt="Foundry VTT Version">
-  <img src="https://img.shields.io/badge/Starfinder%202e-v0.11%2B-orange?style=for-the-badge" alt="SF2e System Version">
-  <a href="LICENSE.md">
-    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
-  </a>
-</p>
-
-<div align="center">
-*Interface adaptada para a complexidade tática do Starfinder 2e.*
-</div>
-
----
-
-## 🎥 Video Demonstration / Demonstração
-
-[![Starfinder 2e Stylish Action HUD Integration](https://img.youtube.com/vi/d5mqZbhOxjU/maxresdefault.jpg)](https://www.youtube.com/watch?v=d5mqZbhOxjU)
-
----
-
-## 📋 Table of Contents
-- 🇬🇧 English
-  - 🌟 Key Features
-  - 🛠️ Requirements
-  - 🚀 Installation
-- 🇧🇷 Português
-  - 🌟 Principais Funcionalidades
-  - 🛠️ Requisitos
-  - 🚀 Instalação
-- 🤝 Support & Contributing
-- 📜 License
-
----
-
-## 🇬🇧 English
-
-### 🌟 Key Features
-- **Starfinder 2e Optimized**: Tailored for the high-tech tactical combat of SF2e (PF2e engine).
-- **Automated Action HUD**: Automatically populates the Stylish Action HUD with all your character's actions.
-- **Clean & Organized UI**: Optimized submenu width for long PF2e/SF2e action names.
-- **Plug and Play**: No configuration needed. 
-- **Foundry V13 Ready**: Built and tested for the latest Foundry VTT versions.
-
-### 🛠️ Requirements
-- **System**: [Starfinder 2nd Edition](https://foundryvtt.com/packages/sf2e)
-- **Module**: [Stylish Action HUD](https://www.patreon.com/theglitchsmith)
-
-### 🚀 Installation
-1. In Foundry VTT, go to **Add-on Modules**.
-2. Click **Install Module**.
-3. In the "Manifest URL" field, paste:
-   `https://raw.githubusercontent.com/CalielBR/sf2e-stylish-action-hud-integration/master/module.json`
-
----
-
-## 🇧🇷 Português
-
-### 🌟 Principais Funcionalidades
-- **Otimizado para Starfinder 2e**: Adaptado para o combate tático do SF2e.
-- **Interface Limpa**: Submenus ajustados para a leitura de nomes longos de perícias e magias.
-- **Pronto para Foundry V13**: Testado nas versões mais recentes.
-
-### 🛠️ Requisitos
-- **Sistema**: [Starfinder 2nd Edition](https://foundryvtt.com/packages/sf2e)
-- **Módulo**: [Stylish Action HUD](https://www.patreon.com/theglitchsmith)
-
-### 🚀 Instalação
-1. No Foundry VTT, vá em **Instalar Módulo**.
-2. No campo "Manifest URL", cole:
-   `https://raw.githubusercontent.com/CalielBR/sf2e-stylish-action-hud-integration/master/module.json`
-
----
-
-## 🤝 Support & Contributing
-Encontrou um erro? Abra uma **Issue** no repositório do GitHub.
-
-## 📜 License
-Este projeto está sob a licença MIT.
-
----
-<p align="center">Authored by CalieLBR & neogenesis</p>
+{
+  "id": "stylish-bridge-sf2e",
+  "title": "Stylish Bridge - SF2e Integration",
+  "description": "Visual and layout optimization for the Stylish Action HUD in the Starfinder 2e system.",
+  "authors": [
+    {
+      "name": "CalielBR",
+      "discord": "calielbr#7504"
+    },
+    {
+      "name": "neogenesis"
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/sf2-stylish-bridge.css"
+  ],
+  "version": "4.0.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13",
+    "maximum": "14"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "sf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "0.0.11"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "id": "stylish-action-hud",
+        "type": "module"
+      }
+    ]
+  },
+  "url": "https://github.com/MikeBarbosa/starfinder2e-stylish-action-hud",
+  "manifest": "https://raw.githubusercontent.com/MikeBarbosa/starfinder2e-stylish-action-hud/main/module.json",
+  "download": "https://github.com/MikeBarbosa/starfinder2e-stylish-action-hud/releases/latest/download/module.zip"
+}
