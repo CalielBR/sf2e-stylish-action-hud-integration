@@ -1,7 +1,7 @@
 {
   "id": "stylish-bridge-sf2e",
   "title": "Stylish Bridge - SF2e Integration",
-  "description": "Visual and layout optimization for the Stylish Action HUD in the Starfinder 2e system.",
+  "description": "Visual and layout optimization for the Stylish Action HUD in the Starfinder 2e system with Macro Pack support.",
   "authors": [
     {
       "name": "CalielBR",
@@ -17,7 +17,21 @@
   "styles": [
     "styles/sf2-stylish-bridge.css"
   ],
-  "version": "5.0.0",
+  "packs": [
+    {
+      "name": "macros",
+      "label": "Macros",
+      "path": "packs/macros",
+      "type": "Macro",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "sf2e",
+      "flags": {}
+    }
+  ],
+  "version": "6.0.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13",
@@ -42,5 +56,6 @@
   },
   "url": "https://github.com/CalielBR/sf2e-stylish-action-hud-integration",
   "manifest": "https://raw.githubusercontent.com/CalielBR/sf2e-stylish-action-hud-integration/main/module.json",
-  "download": "https://github.com/CalielBR/sf2e-stylish-action-hud-integration/releases/latest/download/module.zip"
+  "download": "https://github.com/CalielBR/sf2e-stylish-action-hud-integration/releases/latest/download/module.zip",
+  "flags": {}
 }
